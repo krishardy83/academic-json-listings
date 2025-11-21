@@ -1,0 +1,344 @@
+           <div
+              x-data="{
+      alumni: [],
+      loading: true,
+      error: null,
+      open: null,
+
+      sortByClassYear: true,
+
+      filters: {
+        department: 'Business',
+        major: '',
+        area: '',
+      },
+
+      init() {
+        fetch('https://www.messiah.edu/alumni_directory/_data/alumni-directory-json.json')
+          .then((response) => response.json())
+          .then((data) => {
+            this.alumni = data.listing_data
+              .filter((student) => student.ugDept === this.filters.department)
+              .sort((a, b) => {
+                if (this.sortByClassYear) {
+                  return this.getClassYear(b.classYear) - this.getClassYear(a.classYear);
+                }
+
+                return a.entry_name.localeCompare(b.entry_name);
+              });
+            this.loading = false;
+          })
+          .catch((error) => {
+            this.error = `Could not fetch program data (${error.message})`;
+            this.loading = false;
+          });
+      },
+
+      getClassYear(year) {
+        if (year.length === 4) {
+          return Number(year);
+        }
+
+        const converted = Number(year);
+
+        if (new Date().getFullYear() - 2000 >= converted) {
+          return converted + 2000;
+        }
+
+        return converted + 1900;
+      },
+
+      getMajors() {
+        const majors = new Set();
+
+        this.alumni.forEach((student) => {
+          if (student.major) {
+            majors.add(student.major);
+          }
+        });
+
+        return Array.from(majors);
+      },
+
+      getGradSubjectAreas() {
+        const areas = new Set();
+
+        this.alumni.forEach((student) => {
+          if (student.gradSubjectArea) {
+            areas.add(student.gradSubjectArea);
+          }
+        });
+
+        return Array.from(areas);
+      },
+
+      hasNoMajorsInAlumniList() {
+        return this.alumni.every((student) => student.major === '');
+      },
+
+      getFilteredAlumni() {
+        if (this.hasNoMajorsInAlumniList()) {
+          return this.alumni;
+        }
+
+        return this.alumni.filter((student) => {
+          const matchesMajor = this.filters.major ? student.major === this.filters.major : true;
+          const matchesArea = this.filters.area ? student.gradSubjectArea === this.filters.area : true;
+          
+          return matchesMajor && matchesArea;
+        });
+      },
+
+      getFeaturedAlumni() {
+        return this.alumni
+          .filter((student) => student.featured === 'yes')
+          .sort((a, b) => b.classYear - a.classYear)
+          .slice(0, 4);
+      },
+    }"
+            >
+              <template x-if="loading">
+                <div
+                  role="alert"
+                  class="bg-tertiary-100 border border-tertiary-200 text-tertiary-800 px-4 py-2"
+                >
+                  <p>Loading information, please wait...</p>
+                </div>
+              </template>
+              <template x-if="error">
+                <div role="alert" class="text-red-600 border border-red-200 bg-red-50 py-2 px-4">
+                  <p class="mb-2">
+                    Snap! Something went wrong. Please refresh the page or try again later.
+                  </p>
+                  <code x-text="error" class="text-sm leading-none"></code>
+                </div>
+              </template>
+              <template x-if="alumni.length > 0">
+                <div>
+                  <div
+                    x-show="getFeaturedAlumni().length > 0"
+                    x-data="{
+            embla: null,
+            
+            init() {
+              this.embla = EmblaCarousel(this.$refs.embla);
+            },
+
+            scrollNext() {
+              this.embla.scrollNext();
+            },
+
+            scrollPrev() {
+              this.embla.scrollPrev();
+            },
+          }"
+                    class="overflow-hidden relative bg-gray-100 border border-gray-300 mb-12"
+                    x-ref="embla"
+                  >
+                    <div class="flex touch-pan-y gap-8">
+                      <template x-for="student in getFeaturedAlumni()">
+                        <div class="basis-full flex-shrink-0 flex-grow-0">
+                          <article class="flex gap-8 h-full">
+                            <img
+                              :src="student.banner_image"
+                              :alt="student.entry_name"
+                              class="object-cover h-full"
+                              width="200"
+                              height="300"
+                              decoding="async"
+                            />
+                            <div class="py-4">
+                              <h2
+                                class="font-title text-primary-800 font-bold text-3xl"
+                                x-text="student.entry_name + ` '` + student.classYear"
+                              ></h2>
+                              <p
+                                class="text-primary-800 font-bold mb-2"
+                                x-text="student.heading"
+                              ></p>
+                              <p x-text="student.teaser" class="mb-4"></p>
+                              <button
+                                type="button"
+                                class="btn btn-quaternary"
+                                @click="open = student"
+                              >
+                                View profile
+                              </button>
+                            </div>
+                          </article>
+                        </div>
+                      </template>
+                    </div>
+                    <nav>
+                      <button
+                        type="button"
+                        class="absolute top-1/2 -translate-y-1/2 text-gray-700 left-0"
+                        @click="scrollPrev"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="size-10 rotate-180"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="m8.25 4.5 7.5 7.5-7.5 7.5"
+                          ></path>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        class="absolute top-1/2 -translate-y-1/2 text-gray-700 right-0"
+                        @click="scrollNext"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="size-10"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="m8.25 4.5 7.5 7.5-7.5 7.5"
+                          ></path>
+                        </svg>
+                      </button>
+                    </nav>
+                  </div>
+                  <div
+                    x-show="getMajors().length > 0 || getGradSubjectAreas().length > 0"
+                    class="flex flex-wrap items-center bg-primary-800 text-white px-4 py-2 gap-2 mb-8"
+                  >
+                    <div x-show="getMajors().length > 0">
+                      <label for="major-filter" class="font-semibold">Filter by major:</label>
+                      <select x-model="filters.major" class="p-2 bg-transparent">
+                        <option value="" selected="">View all</option>
+                        <template x-for="major in getMajors()">
+                          <option x-text="major" :value="major"></option>
+                        </template>
+                      </select>
+                    </div>
+                    <div x-show="getGradSubjectAreas().length > 0">
+                      <label for="major-filter" class="font-semibold"
+                        >Filter by subject area:</label
+                      >
+                      <select x-model="filters.area" class="p-2 bg-transparent">
+                        <option value="" selected="">View all</option>
+                        <template x-for="area in getGradSubjectAreas()">
+                          <option x-text="area" :value="area"></option>
+                        </template>
+                      </select>
+                    </div>
+                  </div>
+                  <template x-for="student, index in getFilteredAlumni()">
+                    <article
+                      class="flex gap-4 md:gap-8 relative border-b border-gray-300 pb-12 mb-12 last-of-type:border-0 last-of-type:mb-0 last-of-type:pb-0"
+                    >
+                      <span
+                        x-text="student.major"
+                        x-show="student.major"
+                        class="bg-primary-800 text-white uppercase absolute top-0 right-0 font-title inline-block text-lg px-2 md:py-1"
+                      ></span>
+                      <img
+                        :src="student.banner_image"
+                        :alt="student.entry_name"
+                        class="object-cover shrink-0 w-24 h-36 md:w-52 md:h-64"
+                        width="200"
+                        height="300"
+                        :loading="index < 4 ? 'eager' : 'lazy'"
+                        decoding="async"
+                      />
+                      <div>
+                        <h2
+                          class="font-title text-primary-800 font-bold text-3xl"
+                          x-text="student.entry_name + ` '` + student.classYear"
+                        ></h2>
+                        <p class="text-primary-800 font-bold mb-2" x-text="student.heading"></p>
+                        <p x-text="student.teaser" class="mb-4"></p>
+                        <button type="button" class="btn btn-quaternary" @click="open = student">
+                          View profile
+                        </button>
+                      </div>
+                    </article>
+                  </template>
+                </div>
+              </template>
+              <template x-teleport="body">
+                <div
+                  x-show="Boolean(open)"
+                  style="display: none"
+                  x-on:keydown.escape.prevent.stop="open = null"
+                  role="dialog"
+                  aria-modal="true"
+                  x-id="['modal-title']"
+                  :aria-labelledby="$id('modal-title')"
+                >
+                  <div
+                    x-show="Boolean(open)"
+                    @click="open = null"
+                    x-transition.opacity.duration.300
+                    class="fixed inset-0 bg-primary-800/80 z-50"
+                  ></div>
+                  <div
+                    x-show="Boolean(open)"
+                    x-transition.opacity.duration.300
+                    x-trap.noscroll.inert="open"
+                    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                  >
+                    <div
+                      class="bg-white p-8 w-full max-w-3xl shadow-xl overflow-y-auto max-h-full"
+                      @click.away="open = null"
+                    >
+                      <div class="flex justify-end">
+                        <button type="button" @click="open = null" aria-label="Close dialog">
+                          <svg
+                            aria-hidden="true"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            width="40"
+                            height="40"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M6 18 18 6M6 6l12 12"
+                            ></path>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="flex flex-col md:flex-row gap-8">
+                        <img
+                          :src="open?.banner_image"
+                          :alt="open?.entry_name"
+                          class="object-cover shrink-0 w-52 h-64"
+                          width="200"
+                          height="300"
+                          decoding="async"
+                        />
+                        <div>
+                          <h3
+                            class="font-title text-primary-800 font-bold text-4xl"
+                            x-text="open?.entry_name + ` '` + open?.classYear"
+                          ></h3>
+                          <p
+                            class="text-primary-800 font-bold mb-2 text-lg"
+                            x-text="open?.heading"
+                          ></p>
+                          <div x-html="open?.profile"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
